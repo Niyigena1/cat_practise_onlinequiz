@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Quiz - Home</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📚 Online Quiz Platform</h1>
+    <a href="/admin" class="btn">Manage Questions</a>
+    <div class="quiz-list">
+      <div class="quiz-card" onclick="window.location.href='/quiz?id=1'">
+        <h2>JavaScript Basics</h2>
+        <p>Test your JavaScript knowledge</p>
+        <span class="questions">Questions</span>
+      </div>
+      <div class="quiz-card" onclick="window.location.href='/quiz?id=2'">
+        <h2>React Fundamentals</h2>
+        <p>Learn React concepts</p>
+        <span class="questions">Questions</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

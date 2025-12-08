@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quiz-api-ingress
+  namespace: production
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.quiz.example.com
+      secretName: quiz-api-tls
+  rules:
+    - host: api.quiz.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: quiz-api
+                port:
+                  number: 80

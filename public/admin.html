@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Manage Questions</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📝 Manage Questions</h1>
+    <a href="/" class="btn-back">Back to Home</a>
+    
+    <div class="admin-section">
+      <h2>Add New Question</h2>
+      <form id="questionForm">
+        <input type="number" id="quizId" placeholder="Quiz ID" required>
+        <textarea id="question" placeholder="Question" required></textarea>
+        <input type="text" id="option1" placeholder="Option 1" required>
+        <input type="text" id="option2" placeholder="Option 2" required>
+        <input type="text" id="option3" placeholder="Option 3" required>
+        <input type="number" id="correctAnswer" placeholder="Correct Answer (0-2)" min="0" max="2" required>
+        <button type="submit" class="btn">Add Question</button>
+      </form>
+    </div>
+
+    <div class="admin-section">
+      <h2>Questions List</h2>
+      <div id="questionsList"></div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
