@@ -48,6 +48,7 @@ async function loadQuestions() {
   document.getElementById('questionsList').innerHTML = html;
 }
 
+// eslint-disable-next-line no-unused-vars
 function editQuestion(id, question, options, correctAnswer) {
   const opts = options.split('|');
   document.getElementById('quizId').value = 1;
@@ -59,6 +60,7 @@ function editQuestion(id, question, options, correctAnswer) {
   editingId = id;
 }
 
+// eslint-disable-next-line no-unused-vars
 async function deleteQuestion(id) {
   if (confirm('Delete this question?')) {
     await fetch(`/api/questions/${id}`, { method: 'DELETE' });

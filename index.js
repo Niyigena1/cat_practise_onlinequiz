@@ -65,13 +65,16 @@ app.get('/api/quizzes/:id', (req, res) => {
 });
 
 // Error handling middleware
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  // eslint-disable-next-line no-console
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
 // Start server
 app.listen(PORT, () => {
+  // eslint-disable-next-line no-console
   console.log(`Online Quiz API running on port ${PORT}`);
 });
 

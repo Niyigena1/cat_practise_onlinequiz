@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 const quizzes = {
   1: {
     title: 'JavaScript Basics',
@@ -15,6 +16,7 @@ const quizzes = {
   }
 };
 
+// eslint-disable-next-line no-unused-vars
 let currentQuiz, currentQuestion = 0, questions = [];
 
 window.onload = async () => {
@@ -67,6 +69,7 @@ function checkAnswer(q, selectedIndex) {
   });
 }
 
+// eslint-disable-next-line no-unused-vars
 function nextQuestion() {
   currentQuestion++;
   if (currentQuestion < questions.length) {
