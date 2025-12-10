@@ -35,7 +35,7 @@ jobs:
         run: npm test -- --coverage --json --outputFile=test-results.json
         continue-on-error: true
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
@@ -67,6 +67,44 @@ jobs:
             
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             
