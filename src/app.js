@@ -72,9 +72,9 @@ app.use((req, res, next) => {
 });
 
 // Metrics endpoint
-app.get('/metrics', (req, res) => {
+app.get('/metrics', async (req, res) => {
   res.set('Content-Type', promClient.register.contentType);
-  res.end(promClient.register.metrics());
+  res.end(await promClient.register.metrics());
 });
 
 app.get('/health', (req, res) => {
