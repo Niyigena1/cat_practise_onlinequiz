@@ -189,6 +189,7 @@ jobs:
           subject: "🔔 CI/CD Pipeline Report - ${{ github.repository }}"
           to: twahirwafabrice12@gmail.com
           from: "GitHub Actions <${{ secrets.EMAIL_USERNAME }}>"
+          secure: true
           body: |
             CI/CD Pipeline Execution Report
             
