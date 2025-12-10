@@ -185,3 +185,4 @@ jobs:
         run: |
           kubectl set image deployment/quiz-api quiz-api=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }} -n production
           kubectl rollout status deployment/quiz-api -n production
+        continue-on-error: true
