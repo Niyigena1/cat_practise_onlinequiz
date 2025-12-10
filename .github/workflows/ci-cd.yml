@@ -32,14 +32,14 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: Run tests with coverage
-        run: npm test -- --coverage --json --outputFile=test-results.json
+        run: npm test -- --coverage --testResultsProcessor=jest-junit
         continue-on-error: true
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: test-results.json
+          path: junit.xml
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage/lcov.info
@@ -48,7 +48,7 @@ jobs:
         if: success() || failure()
         with:
           name: Jest Test Results
-          path: test-results.json
+          path: junit.xml
           reporter: 'java-junit'
       
       - name: Send email notification on test failure
@@ -68,44 +68,6 @@ jobs:
             
             Repository: ${{ github.repository }}
             Branch: ${{ github.ref_name }}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             
