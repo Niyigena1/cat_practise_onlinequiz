@@ -39,7 +39,7 @@ describe('Integration Tests - Quiz API Flow', () => {
       }
 
       const response = await request(app)
-        .get(`/api/questions`);
+        .get('/api/questions');
 
       expect(response.status).toBe(200);
       const questionExists = response.body.some(q => q.id === questionId);

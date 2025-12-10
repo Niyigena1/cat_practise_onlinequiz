@@ -1,0 +1,179 @@
+groups:
+  - name: quiz-api-alerts
+    interval: 30s
+    rules:
+      # High error rate (>5% for 5 minutes)
+      - alert: HighErrorRate
+        expr: |
+          (sum(rate(http_requests_total{job="quiz-api",status=~"5.."}[5m])) /
+           sum(rate(http_requests_total{job="quiz-api"}[5m])) * 100) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: quiz-api
+        annotations:
+          summary: "High error rate detected in {{ $labels.pod }}"
+          description: "Error rate is {{ $value | humanize }}% (threshold: 5%)"
+          runbook_url: "https://wiki.example.com/runbooks/high-error-rate"
+
+      # Very high error rate (>10% for 2 minutes)
+      - alert: CriticalErrorRate
+        expr: |
+          (sum(rate(http_requests_total{job="quiz-api",status=~"5.."}[5m])) /
+           sum(rate(http_requests_total{job="quiz-api"}[5m])) * 100) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: quiz-api
+        annotations:
+          summary: "Critical error rate in {{ $labels.pod }}"
+          description: "Error rate is {{ $value | humanize }}% (threshold: 10%)"
+
+      # High response time (>500ms)
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="quiz-api"}[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: quiz-api
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value | humanizeFloat:.3s }} (threshold: 500ms)"
+
+      # Pod CPU high (>80%)
+      - alert: PodCPUUsageHigh
+        expr: |
+          (sum(rate(container_cpu_usage_seconds_total{pod=~"quiz-api-.*"}[5m])) by (pod) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          resource: cpu
+        annotations:
+          summary: "High CPU usage on pod {{ $labels.pod }}"
+          description: "CPU usage is {{ $value | humanize }}% (threshold: 80%)"
+
+      # Pod Memory high (>80%)
+      - alert: PodMemoryUsageHigh
+        expr: |
+          (container_memory_usage_bytes{pod=~"quiz-api-.*"} / container_spec_memory_limit_bytes{pod=~"quiz-api-.*"} * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          resource: memory
+        annotations:
+          summary: "High memory usage on pod {{ $labels.pod }}"
+          description: "Memory usage is {{ $value | humanize }}% (threshold: 80%)"
+
+      # Pod restart loop
+      - alert: PodRestartingTooOften
+        expr: |
+          rate(kube_pod_container_status_restarts_total{pod=~"quiz-api-.*"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          issue: crash-loop
+        annotations:
+          summary: "Pod {{ $labels.pod }} is restarting frequently"
+          description: "Pod has restarted {{ $value | humanize }} times in the last 15 minutes"
+
+      # Pod not ready
+      - alert: PodNotReady
+        expr: |
+          kube_pod_status_ready{condition="false",pod=~"quiz-api-.*"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          issue: pod-health
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not ready"
+          description: "Pod has been unready for more than 5 minutes"
+
+      # Deployment replicas mismatch
+      - alert: DeploymentReplicasMismatch
+        expr: |
+          kube_deployment_spec_replicas{deployment="quiz-api"} != kube_deployment_status_replicas_available{deployment="quiz-api"}
+        for: 5m
+        labels:
+          severity: warning
+          resource: deployment
+        annotations:
+          summary: "Deployment quiz-api replicas mismatch"
+          description: "Expected {{ $value }} replicas, but only {{ $value }} are available"
+
+      # Database connection errors
+      - alert: DatabaseConnectionErrors
+        expr: |
+          rate(db_connection_errors_total{job="quiz-api"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection errors detected"
+          description: "{{ $value | humanize }} connection errors per second"
+
+      # API latency p99 (>1s)
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="quiz-api"}[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          metric: latency
+        annotations:
+          summary: "High P99 latency detected"
+          description: "P99 latency is {{ $value | humanizeFloat:.3s }} (threshold: 1s)"
+
+      # Disk usage high
+      - alert: NodeDiskUsageHigh
+        expr: |
+          (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          resource: disk
+        annotations:
+          summary: "High disk usage on node {{ $labels.node }}"
+          description: "Disk usage is {{ $value | humanize }}% (threshold: 85%)"
+
+      # Node not ready
+      - alert: NodeNotReady
+        expr: |
+          kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          resource: node
+        annotations:
+          summary: "Node {{ $labels.node }} is not ready"
+          description: "Node has been unready for more than 5 minutes"
+
+  - name: sla-alerts
+    interval: 60s
+    rules:
+      # Error budget exceeded (99.9% SLO)
+      - alert: ErrorBudgetExceeded
+        expr: |
+          (1 - (sum(rate(http_requests_total{job="quiz-api",status!~"5.."}[30d])) /
+                 sum(rate(http_requests_total{job="quiz-api"}[30d])))) > 0.001
+        for: 1h
+        labels:
+          severity: critical
+          slo: error-budget
+        annotations:
+          summary: "SLA error budget exceeded (99.9% target)"
+          description: "Error rate for past 30 days is {{ $value | humanizeFloat:.5f }}"
+
+      # Availability below target (99.9%)
+      - alert: AvailabilityBelowTarget
+        expr: |
+          (sum(rate(http_requests_total{job="quiz-api",status!~"5.."}[1h])) /
+           sum(rate(http_requests_total{job="quiz-api"}[1h]))) < 0.999
+        for: 30m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "Availability is below 99.9% target"
+          description: "Current availability: {{ $value | humanizeFloat:.4f }}"

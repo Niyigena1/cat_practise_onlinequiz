@@ -1,0 +1,265 @@
+---
+# Elasticsearch StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+        - name: set-vm-max-map-count
+          image: busybox
+          securityContext:
+            privileged: true
+          command: ['sysctl', '-w', 'vm.max_map_count=262144']
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.0.0
+          env:
+            - name: cluster.name
+              value: quiz-api-logs
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+          ports:
+            - name: http
+              containerPort: 9200
+            - name: transport
+              containerPort: 9300
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# Elasticsearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+    - name: transport
+      port: 9300
+      targetPort: 9300
+  selector:
+    app: elasticsearch
+
+---
+# Logstash ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: monitoring
+data:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+  logstash.conf: |
+    input {
+      tcp {
+        port => 5000
+        codec => json
+      }
+      udp {
+        port => 5000
+        codec => json
+      }
+    }
+    
+    filter {
+      if [type] == "kubernetes" {
+        mutate {
+          rename => { "log" => "message" }
+        }
+        if [message] =~ /error|ERROR|Error/ {
+          mutate {
+            add_field => { "severity" => "error" }
+          }
+        } else if [message] =~ /warn|WARN|Warning/ {
+          mutate {
+            add_field => { "severity" => "warning" }
+          }
+        } else {
+          mutate {
+            add_field => { "severity" => "info" }
+          }
+        }
+      }
+    }
+    
+    output {
+      elasticsearch {
+        hosts => ["elasticsearch:9200"]
+        index => "logs-%{+YYYY.MM.dd}"
+      }
+      stdout { 
+        codec => rubydebug 
+      }
+    }
+
+---
+# Logstash Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:8.0.0
+          ports:
+            - name: tcp
+              containerPort: 5000
+            - name: udp
+              containerPort: 5000
+              protocol: UDP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /usr/share/logstash/config
+            - name: pipeline
+              mountPath: /usr/share/logstash/pipeline
+          env:
+            - name: LS_JAVA_OPTS
+              value: "-Xmx512m -Xms512m"
+      volumes:
+        - name: config
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.yml
+                path: logstash.yml
+        - name: pipeline
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.conf
+                path: logstash.conf
+
+---
+# Logstash Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+    - name: udp
+      port: 5000
+      targetPort: 5000
+      protocol: UDP
+  selector:
+    app: logstash
+
+---
+# Kibana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:8.0.0
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch:9200"
+            - name: ELASTICSEARCH_USERNAME
+              value: "elastic"
+            - name: ELASTICSEARCH_PASSWORD
+              value: "changeme"
+            - name: xpack.security.enabled
+              value: "false"
+          ports:
+            - name: web
+              containerPort: 5601
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+---
+# Kibana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: monitoring
+spec:
+  type: LoadBalancer
+  ports:
+    - name: web
+      port: 5601
+      targetPort: 5601
+  selector:
+    app: kibana

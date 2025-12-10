@@ -1,0 +1,67 @@
+---
+# AlertManager ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+      slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    
+    route:
+      receiver: 'default'
+      group_by: ['alertname', 'cluster']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      
+      routes:
+        - match:
+            severity: critical
+          receiver: 'critical'
+          continue: true
+          
+        - match:
+            severity: warning
+          receiver: 'warning'
+          continue: true
+    
+    receivers:
+      - name: 'default'
+        slack_configs:
+          - channel: '#alerts'
+            title: 'Alert: {{ .GroupLabels.alertname }}'
+            text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+            send_resolved: true
+      
+      - name: 'critical'
+        slack_configs:
+          - channel: '#critical-alerts'
+            title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+            text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+            send_resolved: true
+        email_configs:
+          - to: 'twahirwafabrice12@gmail.com'
+            from: 'alertmanager@quiz-api'
+            smarthost: 'smtp.gmail.com:587'
+            auth_username: 'YOUR_GMAIL_ADDRESS'
+            auth_password: 'YOUR_GMAIL_APP_PASSWORD'
+            headers:
+              Subject: '[CRITICAL] Quiz API Alert: {{ .GroupLabels.alertname }}'
+      
+      - name: 'warning'
+        slack_configs:
+          - channel: '#warnings'
+            title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+            text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+            send_resolved: true
+
+    inhibit_rules:
+      - source_match:
+          severity: 'critical'
+        target_match:
+          severity: 'warning'
+        equal: ['alertname', 'dev', 'instance']
