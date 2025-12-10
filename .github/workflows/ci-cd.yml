@@ -31,10 +31,25 @@ jobs:
           node-version: '18'
           cache: 'npm'
       - run: npm ci
-      - run: npm test
+      - name: Run tests with coverage
+        run: npm test -- --coverage --json --outputFile=test-results.json
+        continue-on-error: true
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: test-results.json
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage/lcov.info
+      - name: Publish test report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Jest Test Results
+          path: test-results.json
+          reporter: 'jest-json'
 
   build:
     needs: [lint, test]
@@ -94,10 +109,80 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  deploy:
-    needs: build
+  notify:
+    needs: [lint, test, build, security]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: always()
+    steps:
+      - name: Determine workflow status
+        id: status
+        run: |
+          if [ "${{ needs.lint.result }}" = "failure" ] || [ "${{ needs.test.result }}" = "failure" ] || [ "${{ needs.build.result }}" = "failure" ] || [ "${{ needs.security.result }}" = "failure" ]; then
+            echo "status=❌ FAILED" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+          else
+            echo "status=✅ SUCCESS" >> $GITHUB_OUTPUT
+            echo "color=good" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "CI/CD Pipeline ${{ steps.status.outputs.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*CI/CD Pipeline Report* ${{ steps.status.outputs.status }}\n*Repo:* ${{ github.repository }}\n*Branch:* ${{ github.ref_name }}\n*Commit:* <${{ github.event.head_commit.url }}|${{ github.sha }}>\n*Author:* ${{ github.actor }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Lint:*\n${{ needs.lint.result == 'success' && '✅' || '❌' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Test:*\n${{ needs.test.result == 'success' && '✅' || '❌' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Build:*\n${{ needs.build.result == 'success' && '✅' || '❌' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Security:*\n${{ needs.security.result == 'success' && '✅' || '❌' }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Workflow"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  deploy:
+    needs: [build, test, lint, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.test.result == 'success' && needs.lint.result == 'success' && needs.build.result == 'success'
     steps:
       - uses: actions/checkout@v3
       - name: Deploy to Kubernetes
